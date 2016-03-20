@@ -8,9 +8,8 @@
 
 const char* HTTPLightSwitchServer::_serverIndex =
 R"(<html><body><h1>Jimmys Light Switch v0.1</h1>
-Hello! I'm a light switch:
+Hello! I'm a light switch, current state = %d!
 <form method='POST' action='/switch1'>
-                  <input name='toggle' value='1'>
                   <button>toggle me</button>
                </form>
          </body></html>)";
@@ -29,21 +28,34 @@ void HTTPLightSwitchServer::setup(ESP8266WebServer *server)
 
     // handler for the /switch1 form page
     _server->on("/switch1", HTTP_GET, [&](){
-      _server->sendHeader("Connection", "close");
-      _server->sendHeader("Access-Control-Allow-Origin", "*");
-      _server->send(200, "text/html", _serverIndex);
+        showIndex();
     });
 
     // handler for the /update form POST (once file upload finishes)
     _server->on("/switch1", HTTP_POST, [&](){
-      _server->sendHeader("Connection", "close");
-      _server->sendHeader("Access-Control-Allow-Origin", "*");
-      _server->send(200, "text/html", "<META http-equiv=\"refresh\" content=\"15;URL=/switch1\">OK");
-      ESP.restart();
-    },[&](){
       // handler for a toggling command
-      if (_serial_output) Serial.println("toggled!");
-      digitalWrite(_switch_pin, 1 - _switch_state);
-      delay(100);
+      toggleSwitch();
+
+      showIndex();
+    },[&](){
+      // do nothing to handle file uploads
     });
+}
+
+void HTTPLightSwitchServer::toggleSwitch() {
+  // toggle switch state
+  _switch_state = 1 - _switch_state;
+
+  digitalWrite(_switch_pin, _switch_state);
+  if (_serial_output) Serial.println("toggled!");
+
+  delay(100);
+}
+
+void HTTPLightSwitchServer::showIndex() {
+  char resp[200];
+  sprintf(resp, _serverIndex, _switch_state);
+  _server->sendHeader("Connection", "close");
+  _server->sendHeader("Access-Control-Allow-Origin", "*");
+  _server->send(200, "text/html", resp);
 }
